@@ -247,4 +247,10 @@ public interface Consumer<K, V> extends Closeable {
      */
     void wakeup();
 
+    /**
+     * @see KafkaConsumer#requestPartitionSizes()
+     */
+    Map<TopicPartition, Integer> requestPartitionSizes(Map<TopicPartition, Long> values);
+
+    Map<TopicPartition, Integer> requestPartitionSizes(Map<TopicPartition, Long> values, Duration timeout);
 }

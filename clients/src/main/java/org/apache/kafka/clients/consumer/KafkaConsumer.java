@@ -50,6 +50,7 @@ import org.apache.kafka.common.network.ChannelBuilder;
 import org.apache.kafka.common.network.Selector;
 import org.apache.kafka.common.requests.IsolationLevel;
 import org.apache.kafka.common.requests.MetadataRequest;
+import org.apache.kafka.common.requests.TopicPartitionSizeRequest;
 import org.apache.kafka.common.serialization.Deserializer;
 import org.apache.kafka.common.utils.AppInfoParser;
 import org.apache.kafka.common.utils.LogContext;
@@ -2120,6 +2121,25 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
     public void wakeup() {
         this.client.wakeup();
     }
+
+    @Override
+    public Map<TopicPartition, Integer> requestPartitionSizes(Map<TopicPartition, Long> values) {
+
+
+        return requestPartitionSizes(values, Duration.ofMillis(defaultApiTimeoutMs));
+    }
+
+    @Override
+    public Map<TopicPartition, Integer> requestPartitionSizes(Map<TopicPartition, Long> values, Duration timeout) {
+        Timer timer = time.timer(timeout);
+
+        Map<TopicPartition, Integer> partitionSizes = fetcher.getTopicPartitionSize(
+                new TopicPartitionSizeRequest.Builder(values), timer
+        );
+
+        return partitionSizes;
+    }
+
 
     private ClusterResourceListeners configureClusterResourceListeners(Deserializer<K> keyDeserializer, Deserializer<V> valueDeserializer, List<?>... candidateLists) {
         ClusterResourceListeners clusterResourceListeners = new ClusterResourceListeners();

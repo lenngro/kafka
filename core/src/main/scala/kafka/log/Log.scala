@@ -37,7 +37,7 @@ import kafka.server.epoch.LeaderEpochFileCache
 import kafka.server.{BrokerTopicStats, FetchDataInfo, LogDirFailureChannel, LogOffsetMetadata}
 import kafka.utils._
 import org.apache.kafka.common.errors._
-import org.apache.kafka.common.record.FileRecords.TimestampAndOffset
+import org.apache.kafka.common.record.FileRecords.{LogOffsetPosition, TimestampAndOffset}
 import org.apache.kafka.common.record._
 import org.apache.kafka.common.requests.FetchResponse.AbortedTransaction
 import org.apache.kafka.common.requests.ListOffsetRequest
@@ -331,6 +331,50 @@ class Log(@volatile var dir: File,
       producerStateManager.removeExpiredProducers(time.milliseconds)
     }
   }, period = producerIdExpirationCheckIntervalMs, delay = producerIdExpirationCheckIntervalMs, unit = TimeUnit.MILLISECONDS)
+
+  /**
+    * Calculates the size of the log as sum of its segment sizes in Bytes.
+    *
+    * @param startOffset : The offset that determines the first segment that will be considered when calculating the log size.
+    * @param method : Determines how the size is calculated.
+    *                 "DROP" : exclude very first segment from calculation
+    *                 "FULL": include first (and oll other) segment(s) when summing size up
+    *                 "AVG" : approximate the size of the very first element as the average size of the considered segments
+    * @return Bytes size of the log as Integer
+    */
+  def physicalSize(startOffset: Long, method: String): Integer = {
+
+    val startSegment = segments.floorEntry(startOffset).getKey()
+    val relevantSegments = segments.tailMap(startSegment, true).asScala
+
+    if (relevantSegments.size < 2) {
+      return relevantSegments.head._2.size
+    }
+
+    var physicalSize= 0
+
+    method match {
+      case "DROP" => {
+        for (segment <- relevantSegments.drop(0)) {
+          physicalSize = physicalSize + segment._2.size
+        }
+      }
+      case "FULL" => {
+        for (segment <- relevantSegments) {
+          physicalSize = physicalSize + segment._2.size
+        }
+      }
+      case "AVG" => {
+        for (segment <- relevantSegments.drop(0)) {
+          physicalSize = physicalSize + segment._2.size
+        }
+        physicalSize = physicalSize + (physicalSize/relevantSegments.drop(0).size)
+      }
+    }
+    physicalSize
+  }
+
+
 
   /** The name of this log */
   def name  = dir.getName()

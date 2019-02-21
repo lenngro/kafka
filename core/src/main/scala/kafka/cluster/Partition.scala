@@ -159,6 +159,14 @@ class Partition(val topicPartition: TopicPartition,
         false
     }
   }
+  /**
+    * Fetch physical size of this partition.
+   */
+
+  def fetchSize(startOffset: Long, method: String): Integer = {
+    val log: Log =  localReplica.get.log.get
+    return log.physicalSize(startOffset, method);
+  }
 
   /**
     * Create the future replica if 1) the current replica is not in the given log directory and 2) the future replica

@@ -19,6 +19,7 @@ package org.apache.kafka.clients.consumer.internals;
 import org.apache.kafka.common.Cluster;
 import org.apache.kafka.common.TopicPartition;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
@@ -56,7 +57,7 @@ public interface PartitionAssignor {
      * @return A map from the members to their respective assignment. This should have one entry
      *         for all members who in the input subscription map.
      */
-    Map<String, Assignment> assign(Cluster metadata, Map<String, Subscription> subscriptions);
+    Map<String, Assignment> assign(Cluster metadata, Map<String, Subscription> subscriptions) throws IOException;
 
 
     /**

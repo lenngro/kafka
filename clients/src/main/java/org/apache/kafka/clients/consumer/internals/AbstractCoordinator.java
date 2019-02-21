@@ -55,6 +55,7 @@ import org.apache.kafka.common.utils.Timer;
 import org.slf4j.Logger;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.List;
@@ -199,7 +200,7 @@ public abstract class AbstractCoordinator implements Closeable {
      */
     protected abstract Map<String, ByteBuffer> performAssignment(String leaderId,
                                                                  String protocol,
-                                                                 Map<String, ByteBuffer> allMemberMetadata);
+                                                                 Map<String, ByteBuffer> allMemberMetadata) throws IOException;
 
     /**
      * Invoked when a group member has successfully joined a group. If this call fails with an exception,
@@ -519,7 +520,11 @@ public abstract class AbstractCoordinator implements Closeable {
                         AbstractCoordinator.this.generation = new Generation(joinResponse.generationId(),
                                 joinResponse.memberId(), joinResponse.groupProtocol());
                         if (joinResponse.isLeader()) {
-                            onJoinLeader(joinResponse).chain(future);
+                            try {
+                                onJoinLeader(joinResponse).chain(future);
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
                         } else {
                             onJoinFollower().chain(future);
                         }
@@ -564,7 +569,7 @@ public abstract class AbstractCoordinator implements Closeable {
         return sendSyncGroupRequest(requestBuilder);
     }
 
-    private RequestFuture<ByteBuffer> onJoinLeader(JoinGroupResponse joinResponse) {
+    private RequestFuture<ByteBuffer> onJoinLeader(JoinGroupResponse joinResponse) throws IOException {
         try {
             // perform the leader synchronization and send back the assignment for the group
             Map<String, ByteBuffer> groupAssignment = performAssignment(joinResponse.leaderId(), joinResponse.groupProtocol(),

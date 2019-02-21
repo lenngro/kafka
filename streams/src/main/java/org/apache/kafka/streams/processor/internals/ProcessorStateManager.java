@@ -264,6 +264,18 @@ public class ProcessorStateManager extends AbstractStateManager {
         }
     }
 
+    public TopicPartition getChangelogTopicPartition(TopicPartition sourceTopicPartition) {
+
+        int partitionId = getPartition(sourceTopicPartition.topic());
+
+        for (TopicPartition topicPartition : changelogPartitions) {
+            if (topicPartition.partition() == sourceTopicPartition.partition()) {
+                return  topicPartition;
+            }
+        }
+        return null;
+    }
+
     // write the checkpoint
     @Override
     public void checkpoint(final Map<TopicPartition, Long> checkpointableOffsets) {

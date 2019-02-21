@@ -18,12 +18,7 @@ package org.apache.kafka.streams.processor.internals;
 
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.consumer.internals.PartitionAssignor;
-import org.apache.kafka.common.Cluster;
-import org.apache.kafka.common.Configurable;
-import org.apache.kafka.common.KafkaException;
-import org.apache.kafka.common.Node;
-import org.apache.kafka.common.PartitionInfo;
-import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.*;
 import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.common.utils.LogContext;
 import org.apache.kafka.common.utils.Utils;
@@ -39,6 +34,11 @@ import org.apache.kafka.streams.processor.internals.assignment.SubscriptionInfo;
 import org.apache.kafka.streams.state.HostInfo;
 import org.slf4j.Logger;
 
+import java.io.*;
+import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -237,6 +237,7 @@ public class StreamsPartitionAssignor implements PartitionAssignor, Configurable
      */
     @Override
     public void configure(final Map<String, ?> configs) {
+
         final StreamsConfig streamsConfig = new InternalStreamsConfig(configs);
 
         // Setting the logger with the passed in client thread name
@@ -326,8 +327,10 @@ public class StreamsPartitionAssignor implements PartitionAssignor, Configurable
         return "stream";
     }
 
+
     @Override
     public Subscription subscription(final Set<String> topics) {
+
         // Adds the following information to subscription
         // 1. Client UUID (a unique id assigned to an instance of KafkaStreams)
         // 2. Task ids of previously running tasks
@@ -335,6 +338,7 @@ public class StreamsPartitionAssignor implements PartitionAssignor, Configurable
 
         final Set<TaskId> previousActiveTasks = taskManager.prevActiveTaskIds();
         final Set<TaskId> standbyTasks = taskManager.cachedTasksIds();
+
         standbyTasks.removeAll(previousActiveTasks);
         final SubscriptionInfo data = new SubscriptionInfo(
             usedSubscriptionMetadataVersion,
@@ -368,6 +372,7 @@ public class StreamsPartitionAssignor implements PartitionAssignor, Configurable
         }
         return assignment;
     }
+
     /*
      * This assigns tasks to consumer clients in the following steps.
      *
@@ -390,7 +395,7 @@ public class StreamsPartitionAssignor implements PartitionAssignor, Configurable
      */
     @Override
     public Map<String, Assignment> assign(final Cluster metadata,
-                                          final Map<String, Subscription> subscriptions) {
+                                          final Map<String, Subscription> subscriptions) throws IOException {
         // construct the client metadata from the decoded subscription info
         final Map<UUID, ClientMetadata> clientsMetadata = new HashMap<>();
         final Set<String> futureConsumers = new HashSet<>();
@@ -540,6 +545,7 @@ public class StreamsPartitionAssignor implements PartitionAssignor, Configurable
         final Cluster fullMetadata = metadata.withPartitions(allRepartitionTopicPartitions);
         taskManager.setClusterMetadata(fullMetadata);
 
+
         log.debug("Created repartition topics {} from the parsed topology.", allRepartitionTopicPartitions.values());
 
         // ---------------- Step One ---------------- //
@@ -553,6 +559,17 @@ public class StreamsPartitionAssignor implements PartitionAssignor, Configurable
         }
 
         final Map<TaskId, Set<TopicPartition>> partitionsForTask = partitionGrouper.partitionGroups(sourceTopicsByGroup, fullMetadata);
+
+        if (partitionsForTask != null) {
+            final Map<TaskId, Map<TopicPartition, Integer>> taskSizes = taskManager.requestTaskSizes(partitionsForTask);
+
+            try (Writer writer = new BufferedWriter(new OutputStreamWriter(
+                    new FileOutputStream("/home/lennartg/Schreibtisch/task_sizes.txt"), "utf-8"))) {
+                writer.write(taskSizes.toString());
+            }
+
+
+        }
 
         // check if all partitions are assigned, and there are no duplicates of partitions in multiple tasks
         final Set<TopicPartition> allAssignedPartitions = new HashSet<>();

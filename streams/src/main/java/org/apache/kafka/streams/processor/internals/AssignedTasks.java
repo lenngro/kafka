@@ -44,6 +44,7 @@ abstract class AssignedTasks<T extends Task> {
     private final Map<TaskId, T> restoring = new HashMap<>();
     private final Set<TopicPartition> restoredPartitions = new HashSet<>();
     private final Set<TaskId> previousActiveTasks = new HashSet<>();
+    private final Map<TaskId, T> previousActiveActualTasks = new HashMap<>();
 
     // IQ may access this map.
     final Map<TaskId, T> running = new ConcurrentHashMap<>();
@@ -128,6 +129,10 @@ abstract class AssignedTasks<T extends Task> {
         return running.values();
     }
 
+    public Map<TaskId, T> previousActiveActualTasks() {
+        return previousActiveActualTasks;
+    }
+
     RuntimeException suspend() {
         final AtomicReference<RuntimeException> firstException = new AtomicReference<>(null);
         log.trace("Suspending running {} {}", taskTypeName, runningTaskIds());
@@ -136,8 +141,13 @@ abstract class AssignedTasks<T extends Task> {
         firstException.compareAndSet(null, closeNonRunningTasks(restoring.values()));
         log.trace("Close created {} {}", taskTypeName, created.keySet());
         firstException.compareAndSet(null, closeNonRunningTasks(created.values()));
+
+        previousActiveActualTasks.clear();
+        previousActiveActualTasks.putAll(running);
+
         previousActiveTasks.clear();
         previousActiveTasks.addAll(running.keySet());
+
         running.clear();
         restoring.clear();
         created.clear();

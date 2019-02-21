@@ -424,6 +424,16 @@ public class MockConsumer<K, V> implements Consumer<K, V> {
         wakeup.set(true);
     }
 
+    @Override
+    public Map<TopicPartition, Integer> requestPartitionSizes(Map<TopicPartition, Long> values) {
+        return null;
+    }
+
+    @Override
+    public Map<TopicPartition, Integer> requestPartitionSizes(Map<TopicPartition, Long> values, Duration timeout) {
+        return null;
+    }
+
     /**
      * Schedule a task to be executed during a poll(). One enqueued task will be executed per {@link #poll(Duration)}
      * invocation. You can use this repeatedly to mock out multiple responses to poll invocations.

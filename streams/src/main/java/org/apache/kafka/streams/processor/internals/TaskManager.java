@@ -21,6 +21,7 @@ import org.apache.kafka.clients.admin.DeleteRecordsResult;
 import org.apache.kafka.clients.admin.RecordsToDelete;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.common.Cluster;
+import org.apache.kafka.common.PartitionSize;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.utils.LogContext;
 import org.apache.kafka.streams.errors.StreamsException;
@@ -31,6 +32,7 @@ import org.apache.kafka.streams.state.HostInfo;
 import org.slf4j.Logger;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -310,6 +312,7 @@ public class TaskManager {
         this.consumer = consumer;
     }
 
+
     /**
      * @throws IllegalStateException If store gets registered after initialized is already finished
      * @throws StreamsException if the store's change log does not contain the partition
@@ -479,4 +482,42 @@ public class TaskManager {
     Map<TaskId, Set<TopicPartition>> assignedStandbyTasks() {
         return assignedStandbyTasks;
     }
+
+    /**
+     * TBD: Only give task Ids as parameters since topicPartitions are not really needed
+     * @param tasks
+     * @return
+     * @throws IOException
+     */
+
+    public Map<TaskId, Map<TopicPartition, Integer>> requestTaskSizes(Map<TaskId, Set<TopicPartition>> tasks) throws IOException {
+
+        Map<TaskId, StreamTask> prevActiveActualTasks = active.previousActiveActualTasks();
+        Map<TaskId, Map<TopicPartition, Integer>> taskSizes = new HashMap<>();
+
+        for (Map.Entry<TaskId, Set<TopicPartition>> task : tasks.entrySet()) {
+
+            this.prevActiveTaskIds()
+
+            StreamTask actualTask = prevActiveActualTasks.get(task.getKey());
+
+
+            if (actualTask != null) {
+
+
+                Map<TopicPartition, Long> topicPartitionsLastCommitedOffsets = actualTask.stateMgr.checkpoint.read();
+
+
+                Map<TopicPartition, Integer> partitionSizes = consumer.requestPartitionSizes(topicPartitionsLastCommitedOffsets);
+                taskSizes.put(task.getKey(), partitionSizes);
+            }
+            else {
+                System.out.println("A task is null");
+            }
+        }
+
+        return taskSizes;
+
+        }
+
 }

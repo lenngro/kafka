@@ -54,13 +54,7 @@ import org.apache.kafka.common.record.Record;
 import org.apache.kafka.common.record.RecordBatch;
 import org.apache.kafka.common.record.Records;
 import org.apache.kafka.common.record.TimestampType;
-import org.apache.kafka.common.requests.FetchRequest;
-import org.apache.kafka.common.requests.FetchResponse;
-import org.apache.kafka.common.requests.IsolationLevel;
-import org.apache.kafka.common.requests.ListOffsetRequest;
-import org.apache.kafka.common.requests.ListOffsetResponse;
-import org.apache.kafka.common.requests.MetadataRequest;
-import org.apache.kafka.common.requests.MetadataResponse;
+import org.apache.kafka.common.requests.*;
 import org.apache.kafka.common.serialization.Deserializer;
 import org.apache.kafka.common.utils.CloseableIterator;
 import org.apache.kafka.common.utils.LogContext;
@@ -175,6 +169,39 @@ public class Fetcher<K, V> implements SubscriptionState.Listener, Closeable {
         subscriptions.addListener(this);
     }
 
+    public Map<TopicPartition, Integer> getTopicPartitionSize(TopicPartitionSizeRequest.Builder request, Timer timer) {
+
+        do {
+
+            RequestFuture<ClientResponse> future = sendTopicPartitionSizeRequest(request);
+            client.poll(future, timer);
+
+            if (future.failed() && !future.isRetriable()) {
+                throw future.exception();
+            }
+
+            if (future.succeeded()) {
+                TopicPartitionSizeResponse response = (TopicPartitionSizeResponse) future.value().responseBody();
+                Map<TopicPartition, Integer> topicPartitionSizes = response.topicPartitionSizes();
+                return topicPartitionSizes;
+            }
+            timer.sleep(retryBackoffMs);
+
+        } while (timer.notExpired());
+        throw new TimeoutException("Timeout expired while fetching TopicPartition size(s).");
+    }
+
+    private RequestFuture<ClientResponse> sendTopicPartitionSizeRequest(TopicPartitionSizeRequest.Builder request) {
+
+        final Node node = client.leastLoadedNode();
+
+        if(node == null)
+            return RequestFuture.noBrokersAvailable();
+        else
+            return client.send(node, request);
+
+    }
+
     /**
      * Represents data about an offset returned by a broker.
      */
@@ -189,6 +216,8 @@ public class Fetcher<K, V> implements SubscriptionState.Listener, Closeable {
             this.leaderEpoch = leaderEpoch;
         }
     }
+
+
 
     /**
      * Return whether we have any completed fetches pending return to the user. This method is thread-safe.
