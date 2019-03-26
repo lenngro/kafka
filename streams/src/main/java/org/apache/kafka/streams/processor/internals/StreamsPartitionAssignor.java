@@ -560,15 +560,28 @@ public class StreamsPartitionAssignor implements PartitionAssignor, Configurable
 
         final Map<TaskId, Set<TopicPartition>> partitionsForTask = partitionGrouper.partitionGroups(sourceTopicsByGroup, fullMetadata);
 
-        if (partitionsForTask != null) {
-            final Map<TaskId, Map<TopicPartition, Integer>> taskSizes = taskManager.requestTaskSizes(partitionsForTask);
 
+        if (partitionsForTask != null) {
+
+            /**
+             * First get the state store sizes.
+             */
+
+            final Map<TaskId, Long> stateSizes = taskManager.stateSizes(partitionsForTask);
+            try(Writer writer = new BufferedWriter(new OutputStreamWriter(
+                    new FileOutputStream("/home/lennartg/Schreibtisch/state_sizes.txt"), "utf-8"))) {
+                writer.write(stateSizes.toString());
+            }
+
+
+            /**
+             * Second, get the remaining task sizes.
+             */
+            final Map<TaskId, Map<TopicPartition, Integer>> taskSizes = taskManager.requestTaskSizes(partitionsForTask);
             try (Writer writer = new BufferedWriter(new OutputStreamWriter(
                     new FileOutputStream("/home/lennartg/Schreibtisch/task_sizes.txt"), "utf-8"))) {
                 writer.write(taskSizes.toString());
             }
-
-
         }
 
         // check if all partitions are assigned, and there are no duplicates of partitions in multiple tasks
@@ -676,6 +689,8 @@ public class StreamsPartitionAssignor implements PartitionAssignor, Configurable
         } else {
             assignment = computeNewAssignment(clientsMetadata, partitionsForTask, partitionsByHostState, minReceivedMetadataVersion);
         }
+
+        System.out.println(assignment);
 
         return assignment;
     }

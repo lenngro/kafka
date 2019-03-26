@@ -484,6 +484,38 @@ public class TaskManager {
     }
 
     /**
+     * State sizes
+     */
+
+    public Map<TaskId, Long> stateSizes(Map<TaskId, Set<TopicPartition>> tasks) {
+
+        Map<TaskId, StreamTask> prevActiveActualTasks = active.previousActiveActualTasks();
+        Map<TaskId, StandbyTask> prevStandbyActualTasks = standby.previousActiveActualTasks();
+        Map<TaskId, Long> stateSizes = new HashMap<>();
+
+        for (Map.Entry<TaskId, Set<TopicPartition>> task : tasks.entrySet()) {
+
+            StreamTask actualTask = prevActiveActualTasks.get(task.getKey());
+
+            if (actualTask != null) {
+
+                long stateSize = actualTask.stateMgr.baseDir.length();
+                System.out.println("State file size for " + actualTask.toString() + " is " + String.valueOf(stateSize));
+                stateSizes.put(actualTask.id, stateSize);
+            }
+            else {
+
+                System.out.println("Task " + task.getKey() + " " + prevStandbyActualTasks.get(task.getKey()) + " couldn't be found.");
+            }
+        }
+
+        return stateSizes;
+
+
+
+    }
+
+    /**
      * TBD: Only give task Ids as parameters since topicPartitions are not really needed
      * @param tasks
      * @return
@@ -493,26 +525,29 @@ public class TaskManager {
     public Map<TaskId, Map<TopicPartition, Integer>> requestTaskSizes(Map<TaskId, Set<TopicPartition>> tasks) throws IOException {
 
         Map<TaskId, StreamTask> prevActiveActualTasks = active.previousActiveActualTasks();
+        Map<TaskId, StandbyTask> prevStandbyActualTasks = standby.previousActiveActualTasks();
+
+
+        /**
+         *         System.out.println("prev active tasks: " + prevActiveActualTasks.keySet());
+         *         System.out.println("prev standby tasks:  " + prevStandbyActualTasks.keySet());
+         *         System.out.println("given tasks: " + tasks.keySet());
+         */
+
         Map<TaskId, Map<TopicPartition, Integer>> taskSizes = new HashMap<>();
 
         for (Map.Entry<TaskId, Set<TopicPartition>> task : tasks.entrySet()) {
 
-            this.prevActiveTaskIds()
-
             StreamTask actualTask = prevActiveActualTasks.get(task.getKey());
 
-
             if (actualTask != null) {
-
-
                 Map<TopicPartition, Long> topicPartitionsLastCommitedOffsets = actualTask.stateMgr.checkpoint.read();
-
-
                 Map<TopicPartition, Integer> partitionSizes = consumer.requestPartitionSizes(topicPartitionsLastCommitedOffsets);
                 taskSizes.put(task.getKey(), partitionSizes);
             }
             else {
-                System.out.println("A task is null");
+
+                System.out.println("Task " + task.getKey() + " " + prevStandbyActualTasks.get(task.getKey()) + " couldn't be found.");
             }
         }
 
